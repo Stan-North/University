@@ -57,7 +57,7 @@ SELECT student_id, first_name, last_name, patronymic, faculty_name, education_co
 FROM student
 JOIN course ON student.course_id = course.course_id
 JOIN faculty ON course.faculty_id = faculty.faculty_id
-WHERE CAST(education_cost AS decimal) > 30000;
+WHERE CAST(education_cost AS decimal) > 30000 AND payment_type = 'частник';
 
 --2. Перевести всех студентов Петровых на 1 курс экономического факультета.
 UPDATE student SET course_id = 2
