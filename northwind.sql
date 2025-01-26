@@ -14,7 +14,7 @@ ORDER BY order_id;
 
 --3.3. Показать сколько сотрудников работает в каждом городе. 
 --Смотри таблицу employee. Вывод: наименование города и количество сотрудников
-SELECT city, COUNT(*)
+SELECT city, COUNT(*) AS employees_quantity
 FROM employees
 GROUP by city;
 
