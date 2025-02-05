@@ -19,25 +19,7 @@ insert into bid (product_type, client_name, is_company, amount) values
 ('credit_card', 'Miksumov Anar Raxogly', false, 30000),
 ('debit_card', 'Saronova Olga Olegovna', false, 0);
 
---1. Создавать таблицы на основании таблицы bid:
---Имя таблицы должно быть основано на типе продукта + является ли он компанией
---Если такая таблица уже есть, скрипт не должен падать!
---Например:
---для записи где product_type = credit, is_company = false будет создана таблица:
---person_credit, с колонками: id (новый id), client_name, amount
---для записи где product_type = credit, is_company = true:
---company_credit, с колонками: id (новый id), client_name, amount
-
---2. Копировать заявки в соответствующие таблицы c помощью конструкции:
---2.1 Для вставки значений можно использовать конструкцию
---insert into (col1, col2)
---select col1, col2
---from [наименование таблицы]
---2.2 Для исполнения динамического запроса с параметрами можно использовать конструкцию
---execute '[текст запроса]' using [значение параметра №1], [значение параметра №2].
---Пример:
---execute 'select * from product where product_type = $1 and is_company = $2' using 'credit', false;
-
+--создание таблиц и копирование заявок
 DO $$
 	DECLARE 
 	result_row RECORD;
@@ -49,7 +31,6 @@ DO $$
 		FOR result_row IN (SELECT * FROM bid) LOOP 
 		product_type := result_row.product_type;
 			is_company := result_row.is_company::BOOLEAN;
-			RAISE NOTICE 'is_company содержит: %', is_company;
 			
 			IF is_company = true 
 			THEN table_prefix := 'company_';
@@ -69,4 +50,39 @@ DO $$
 	END;
 $$
 
+--Скрипт №2 - Начисление процентов по кредитам за день
+DO $$
+	DECLARE
+	result_row RECORD;
+	base_credit_rate NUMERIC(12,2) := 0.1;
+	var_client_name VARCHAR;
+	var_result_interest NUMERIC(12,2);
+	var_total_interest NUMERIC(12,2) := 0.0;
+	BEGIN
+		EXECUTE 'CREATE TABLE IF NOT EXISTS credit_percent 
+		(client_name VARCHAR(100) PRIMARY KEY, interest_amount NUMERIC(12,2))';
+	
+		--расчет для физ.лиц
+		FOR result_row IN (SELECT client_name, amount FROM person_credit) LOOP
+			var_client_name := result_row.client_name;
+			var_result_interest := (COALESCE(result_row.amount, 0) * (base_credit_rate + 0.05) / 365);
+			
+			INSERT INTO credit_percent(client_name, interest_amount) VALUES(var_client_name, var_result_interest)
+			ON CONFLICT (client_name)
+			DO UPDATE SET interest_amount = EXCLUDED.interest_amount;
+			var_total_interest := (var_total_interest + var_result_interest);
+		END LOOP;
+	
+		--расчет для компаний
+		FOR result_row IN (SELECT client_name, amount FROM company_credit) LOOP
+			var_client_name := result_row.client_name;
+			var_result_interest := ((COALESCE(result_row.amount, 0) * base_credit_rate) / 365);
+			INSERT INTO credit_percent(client_name, interest_amount) VALUES(var_client_name, var_result_interest)
+			ON CONFLICT (client_name)
+			DO UPDATE SET interest_amount = EXCLUDED.interest_amount;
+			var_total_interest := (var_total_interest + var_result_interest);
+		END LOOP;
+		RAISE NOTICE 'общая сумма начисленных процентов: %', var_total_interest;
+	END;
+$$
 
