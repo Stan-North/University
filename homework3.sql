@@ -86,3 +86,6 @@ DO $$
 	END;
 $$
 
+
+--Создать view которая отображает только заявки компаний
+CREATE VIEW company_bid AS (SELECT product_type, client_name AS company_name, amount FROM bid WHERE IS_COMPANY = true);
